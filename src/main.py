@@ -4,7 +4,6 @@ import fnmatch
 import subprocess
 
 
-
 def get_child_directories(directory_path):
     return [os.path.join(directory_path, name) for name in os.listdir(directory_path) if
             os.path.isdir(os.path.join(directory_path, name))]
@@ -41,12 +40,31 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
 
     command = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", output_file_path]
     if not os.path.isfile(output_file_path):
-        print(f'Converting {output_file_path}')
+        print('Converting to wav')
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-        print(f'Converted {output_file_path}')
+        print('Converted to wav')
     else:
-        print(f'Already converted {output_file_path}')
+        print('Already converted to wav')
+
     return output_file_path
+
+
+def call_whisper(wavfile):
+    command = [
+        "d:\\Projects\\whisper.cpp\\Build\\bin\\Release\\main.exe",
+        "-m", "d:\\Projects\\whisper.cpp\\models\\ggml-large.bin",
+        "-t", "8",
+        "-l", "ru",
+        "-d", "500",
+        "-otxt",
+        "-pp",
+        "-f", wavfile
+    ]
+
+    print(f'Converting to text')
+    #subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    subprocess.run(command, check=True)
+    print(f'Converted to text')
 
 
 if __name__ == '__main__':
@@ -63,4 +81,6 @@ if __name__ == '__main__':
         m4a_files = find_m4a_files(dir_with_zoom)
         for m4a_file in m4a_files:
             print(f'Processing {m4a_file}')
-            create_wav_file(dir_with_zoom, output_dir, m4a_file)
+            wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
+            call_whisper(wav_file)
+
