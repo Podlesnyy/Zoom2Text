@@ -49,14 +49,16 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
     return output_file_path
 
 
-def call_whisper(wavfile):
+def call_whisper(whisper, model, wavfile):
     command = [
-        "d:\\Projects\\whisper.cpp\\Build\\bin\\Release\\main.exe",
-        "-m", "d:\\Projects\\whisper.cpp\\models\\ggml-large.bin",
-        "-t", "8",
+        whisper,
+        "-m", model,
+        "-t", "16",
         "-l", "ru",
-        "-d", "500",
         "-otxt",
+        "-osrt",
+        "-ocsv",
+        "-ovtt",
         "-pp",
         "-f", wavfile
     ]
@@ -71,6 +73,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="List child directories of a given directory")
     parser.add_argument("-pz", "--pathZoom", type=str, help="The path to the Zoom directory")
     parser.add_argument("-po", "--pathOutput", type=str, help="The path to the Output directory")
+    parser.add_argument("-wh", "--whisper", type=str, help="Whisper main")
+    parser.add_argument("-m", "--model", type=str, help="Whisper model")
     args = parser.parse_args()
 
     zooms = get_child_directories(args.pathZoom)
@@ -82,5 +86,5 @@ if __name__ == '__main__':
         for m4a_file in m4a_files:
             print(f'Processing {m4a_file}')
             wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
-            call_whisper(wav_file)
+            call_whisper(args.whisper, args.model, wav_file)
 
