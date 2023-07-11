@@ -39,6 +39,7 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
     output_file_path = os.path.join(output_dir_path, wav_filename)
 
     command = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", output_file_path]
+    #ommand = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", output_file_path]
     if not os.path.isfile(output_file_path):
         print('Converting to wav')
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
@@ -52,14 +53,14 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
 def call_whisper(whisper, model, wavfile):
     command = [
         whisper,
+        #"-t", "12",
         "-m", model,
-        "-t", "16",
-        "-l", "ru",
-        "-otxt",
-        "-osrt",
-        "-ocsv",
-        "-ovtt",
-        "-pp",
+        #"-l", "auto",
+        #"-otxt",
+        #"-osrt",
+        #"-ocsv",
+        #"-ovtt",
+        #"-pp",
         "-f", wavfile
     ]
 
