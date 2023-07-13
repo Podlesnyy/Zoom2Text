@@ -2,6 +2,10 @@ import os
 import argparse
 import fnmatch
 import subprocess
+import time
+
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
 
 
 def get_child_directories(directory_path):
@@ -29,20 +33,42 @@ def find_m4a_files(directory_path):
 
 def create_wav_file(dir_with_zoom, output_dir, m4afile):
     m4a_dir, m4a_filename = os.path.split(m4afile)
-
-    zoom_m4a_file = os.path.join(dir_with_zoom, m4afile)
     wav_filename = os.path.splitext(m4a_filename)[0] + '.wav'
     output_dir_path = os.path.join(output_dir, m4a_dir)
     if not os.path.exists(output_dir_path):
         os.makedirs(output_dir_path)
 
     output_file_path = os.path.join(output_dir_path, wav_filename)
+    #if os.path.isfile(output_file_path):
+    #    return output_file_path
 
-    command = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", output_file_path]
-    #ommand = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", output_file_path]
+    zoom_m4a_file = os.path.join(dir_with_zoom, m4afile)
+    sound = AudioSegment.from_file(zoom_m4a_file, format='m4a')  # load source
+    print(f'Removing silence')
+    start_time = time.time()
+    a = sound.dBFS
+    #sound = sound[4*60*1000:6*60*1000]
+    chunks = split_on_silence( sound, silence_thresh=-50, min_silence_len=3000)
+
+    non_silent_audio = AudioSegment.empty()
+    silence = AudioSegment.silent(duration=2000)
+
+    for chunk in chunks:
+        non_silent_audio += chunk
+        non_silent_audio += silence
+
+    end_time = time.time()
+    print(f'Removed silence by time {end_time - start_time}')
+
+    non_silent_audio = non_silent_audio.set_channels(1)  # mono
+    non_silent_audio = non_silent_audio.set_frame_rate(16000)  # 16000Hz
+
+    #segment = sound[120000:150000]
+    # command = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", output_file_path]
+    # ommand = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", output_file_path]
     if not os.path.isfile(output_file_path):
         print('Converting to wav')
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        non_silent_audio.export(output_file_path, format="wav")
         print('Converted to wav')
     else:
         print('Already converted to wav')
@@ -53,21 +79,20 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
 def call_whisper(whisper, model, wavfile):
     command = [
         whisper,
-        #"-t", "12",
+        "-t", "8",
         "-m", model,
-        #"-l", "auto",
-        #"-otxt",
-        #"-osrt",
-        #"-ocsv",
-        #"-ovtt",
-        #"-pp",
+        "--language", "russian",
+        "-ocsv",
+        "-otxt",
         "-f", wavfile
     ]
 
     print(f'Converting to text')
-    #subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    # subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    start_time = time.time()
     subprocess.run(command, check=True)
-    print(f'Converted to text')
+    end_time = time.time()
+    print(f'Converted to text by time {end_time - start_time}')
 
 
 if __name__ == '__main__':
@@ -88,4 +113,3 @@ if __name__ == '__main__':
             print(f'Processing {m4a_file}')
             wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
             call_whisper(args.whisper, args.model, wav_file)
-
