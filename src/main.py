@@ -1,7 +1,8 @@
 import os
 import argparse
 import fnmatch
-import subprocess
+import openai
+from pydub import AudioSegment
 
 
 def get_child_directories(directory_path):
@@ -27,47 +28,67 @@ def find_m4a_files(directory_path):
     return m4a_files
 
 
-def create_wav_file(dir_with_zoom, output_dir, m4afile):
-    m4a_dir, m4a_filename = os.path.split(m4afile)
+def transcribe(mp3_file):
+    print(f'Converting to text')
+    #return 'test'
+    with open(mp3_file, "rb") as audio_file:
+        return openai.Audio.transcribe(
+            file=audio_file,
+            model="whisper-1",
+            response_format="srt"
+        )
 
-    zoom_m4a_file = os.path.join(dir_with_zoom, m4afile)
-    wav_filename = os.path.splitext(m4a_filename)[0] + '.wav'
+
+def save_to_file(mp3_file, transcript):
+    transcribe_filename = mp3_file + '.srt'
+    with open(transcribe_filename, 'w') as f:
+        f.write(transcript)
+
+
+def split(dir_with_zoom, m4a_file, output_dir):
+    m4a_dir, m4a_filename = os.path.split(m4a_file)
+    zoom_m4a_file = os.path.join(dir_with_zoom, m4a_file)
+    chunk_filename = f'_chunk_{os.path.splitext(m4a_filename)[0]}.mp3'
+    audio = AudioSegment.from_file(zoom_m4a_file, format='m4a')
+    #tempfile = a
+
+    # calculate the duration for the chunks
+    duration_ms = len(audio)
+    target_duration_ms = int(24*1024*1024 / os.path.getsize(zoom_m4a_file) * duration_ms)
+    target_duration_ms = 60 * 60 * 1000
+
+    # Split
+    chunks = make_chunks(audio, target_duration_ms)
+
     output_dir_path = os.path.join(output_dir, m4a_dir)
     if not os.path.exists(output_dir_path):
         os.makedirs(output_dir_path)
 
-    output_file_path = os.path.join(output_dir_path, wav_filename)
+    chunk_files = []
+    # Export chunks
+    for i, chunk in enumerate(chunks):
+        chunk_file_path = os.path.join(output_dir_path,f"{i}{chunk_filename}")
+        chunk_files.append(chunk_file_path)
+        chunk.export(chunk_file_path, format='mp3' )
 
-    command = ["ffmpeg", "-i", zoom_m4a_file, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", output_file_path]
-    if not os.path.isfile(output_file_path):
-        print('Converting to wav')
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-        print('Converted to wav')
-    else:
-        print('Already converted to wav')
-
-    return output_file_path
+    return chunk_files
 
 
-def call_whisper(whisper, model, wavfile):
-    command = [
-        whisper,
-        "-m", model,
-        "-t", "16",
-        "-l", "ru",
-        "-otxt",
-        "-osrt",
-        "-ocsv",
-        "-ovtt",
-        "-pp",
-        "-f", wavfile
-    ]
+def make_chunks(audio, chunk_duration_ms):
+    """
+    Breaks an audio file into chunks of a certain length
+    """
+    chunk_length = len(audio)
+    chunks = []
 
-    print(f'Converting to text')
-    #subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    subprocess.run(command, check=True)
-    print(f'Converted to text')
+    while chunk_length > chunk_duration_ms:
+        chunks.append(audio[:chunk_duration_ms])
+        audio = audio[chunk_duration_ms:]
+        chunk_length -= chunk_duration_ms
 
+    chunks.append(audio)
+
+    return chunks
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="List child directories of a given directory")
@@ -77,6 +98,8 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--model", type=str, help="Whisper model")
     args = parser.parse_args()
 
+    openai.api_key = os.environ["OPENAI_ZOOM2TEXT_API_KEY"]
+
     zooms = get_child_directories(args.pathZoom)
     for dir_with_zoom in zooms:
         print(f'Processing {dir_with_zoom}')
@@ -85,6 +108,7 @@ if __name__ == '__main__':
         m4a_files = find_m4a_files(dir_with_zoom)
         for m4a_file in m4a_files:
             print(f'Processing {m4a_file}')
-            wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
-            call_whisper(args.whisper, args.model, wav_file)
-
+            chunk_files = split(dir_with_zoom, m4a_file, output_dir)
+            for mp3_file in chunk_files:
+                transcript = transcribe(mp3_file)
+                save_to_file(mp3_file, transcript)
