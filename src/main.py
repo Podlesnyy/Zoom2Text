@@ -4,8 +4,6 @@ import fnmatch
 import subprocess
 import time
 import pandas as pd
-import csv
-
 import gspread
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
@@ -48,6 +46,10 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
     output_file_path = os.path.join(output_dir_path, wav_filename)
     if os.path.isfile(output_file_path):
         print('WAV file was already created')
+        return output_file_path
+
+    if os.path.isfile(output_file_path + '.txt'):
+        print('WAV file was already handled')
         return output_file_path
 
     zoom_m4a_file = os.path.join(dir_with_zoom, m4afile)
@@ -96,8 +98,8 @@ def call_whisper(whisper, model, wavfile):
     print(f'Converted to text by time {end_time - start_time}')
 
 
-def create_google_doc(dir_with_zoom, wav_file):
-    gc = gspread.service_account(filename=r'f:\Downloads\zoom2text-a4734ed30264.json')
+def create_google_doc(google_account, dir_with_zoom, wav_file):
+    gc = gspread.service_account(google_account)
     last_dir = os.path.basename(os.path.normpath(dir_with_zoom))
     sheet_name = f'Zoom2Text {last_dir}'
 
@@ -133,6 +135,7 @@ if __name__ == '__main__':
     parser.add_argument("-po", "--pathOutput", type=str, help="The path to the Output directory")
     parser.add_argument("-wh", "--whisper", type=str, help="Whisper main")
     parser.add_argument("-m", "--model", type=str, help="Whisper model")
+    parser.add_argument("-ga", "--googleAcc", type=str, help="Google Account file")
     args = parser.parse_args()
 
     zooms = get_child_directories(args.pathZoom)
@@ -144,4 +147,4 @@ if __name__ == '__main__':
             print(f'Processing m4a {m4a_file}')
             wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
             call_whisper(args.whisper, args.model, wav_file)
-            create_google_doc(dir_with_zoom, wav_file)
+            create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
