@@ -4,6 +4,7 @@ import fnmatch
 import subprocess
 import time
 import pandas as pd
+import csv
 
 import gspread
 from pydub import AudioSegment
@@ -74,7 +75,7 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
 
 
 def call_whisper(whisper, model, wavfile):
-    if os.path.isfile(wavfile+'.txt'):
+    if os.path.isfile(wavfile + '.txt'):
         print('Transcription already was created')
         return
 
@@ -101,22 +102,29 @@ def create_google_doc(dir_with_zoom, wav_file):
     sheet_name = f'Zoom2Text {last_dir}'
 
     try:
-        # Try to open the Google Sheet
-        gc.open(sheet_name)
-        print(f"'{sheet_name}' exists.")
-        return
+        spreadsheet = gc.open(sheet_name)
     except gspread.SpreadsheetNotFound:
-        print(f"'{sheet_name}' does not exist.")
+        spreadsheet = gc.create(sheet_name)
+        res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
+        permission_id = res.json()["id"]
+        spreadsheet.transfer_ownership(permission_id)
 
-    spreadsheet = gc.create(sheet_name)
-    # gc.del_spreadsheet(spreadsheet.id)
-    res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
-    permission_id = res.json()["id"]
-    spreadsheet.transfer_ownership(permission_id)
-    data = pd.read_csv(f'{wav_file}.csv')
-    worksheet = spreadsheet.get_worksheet(0)
+    data = pd.read_csv(f'{wav_file}.csv', escapechar="\\")
+    file_name = os.path.splitext(os.path.basename(wav_file))[0]
+
+    try:
+        spreadsheet.worksheet(file_name)
+        print(f'Worksheet {file_name} already created')
+        return
+    except gspread.WorksheetNotFound:
+        worksheet = spreadsheet.add_worksheet(file_name, 1, 100)
+
     worksheet.insert_rows(data.values.tolist(), 1)
-    pass
+    try:
+        worksheet0 = spreadsheet.worksheet('Sheet1')
+        spreadsheet.del_worksheet(worksheet0)
+    except gspread.WorksheetNotFound:
+        pass
 
 
 if __name__ == '__main__':
@@ -127,13 +135,11 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--model", type=str, help="Whisper model")
     args = parser.parse_args()
 
-
-
     zooms = get_child_directories(args.pathZoom)
     for dir_with_zoom in zooms:
         print(f'Processing zoom directory {dir_with_zoom}')
         output_dir = create_directory(dir_with_zoom, args.pathOutput)
-        m4a_files = find_m4a_files(dir_with_zoom, False)
+        m4a_files = find_m4a_files(dir_with_zoom, True)
         for m4a_file in m4a_files:
             print(f'Processing m4a {m4a_file}')
             wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
