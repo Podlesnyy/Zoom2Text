@@ -3,7 +3,9 @@ import argparse
 import fnmatch
 import subprocess
 import time
+import pandas as pd
 
+import gspread
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 
@@ -93,6 +95,30 @@ def call_whisper(whisper, model, wavfile):
     print(f'Converted to text by time {end_time - start_time}')
 
 
+def create_google_doc(dir_with_zoom, wav_file):
+    gc = gspread.service_account(filename=r'f:\Downloads\zoom2text-a4734ed30264.json')
+    last_dir = os.path.basename(os.path.normpath(dir_with_zoom))
+    sheet_name = f'Zoom2Text {last_dir}'
+
+    try:
+        # Try to open the Google Sheet
+        gc.open(sheet_name)
+        print(f"'{sheet_name}' exists.")
+        return
+    except gspread.SpreadsheetNotFound:
+        print(f"'{sheet_name}' does not exist.")
+
+    spreadsheet = gc.create(sheet_name)
+    # gc.del_spreadsheet(spreadsheet.id)
+    res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
+    permission_id = res.json()["id"]
+    spreadsheet.transfer_ownership(permission_id)
+    data = pd.read_csv(f'{wav_file}.csv')
+    worksheet = spreadsheet.get_worksheet(0)
+    worksheet.insert_rows(data.values.tolist(), 1)
+    pass
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="List child directories of a given directory")
     parser.add_argument("-pz", "--pathZoom", type=str, help="The path to the Zoom directory")
@@ -100,6 +126,8 @@ if __name__ == '__main__':
     parser.add_argument("-wh", "--whisper", type=str, help="Whisper main")
     parser.add_argument("-m", "--model", type=str, help="Whisper model")
     args = parser.parse_args()
+
+
 
     zooms = get_child_directories(args.pathZoom)
     for dir_with_zoom in zooms:
@@ -110,3 +138,4 @@ if __name__ == '__main__':
             print(f'Processing m4a {m4a_file}')
             wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
             call_whisper(args.whisper, args.model, wav_file)
+            create_google_doc(dir_with_zoom, wav_file)
