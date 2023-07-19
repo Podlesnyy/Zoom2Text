@@ -144,7 +144,11 @@ if __name__ == '__main__':
         output_dir = create_directory(dir_with_zoom, args.pathOutput)
         m4a_files = find_m4a_files(dir_with_zoom, True)
         for m4a_file in m4a_files:
-            print(f'Processing m4a {m4a_file}')
-            wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
-            call_whisper(args.whisper, args.model, wav_file)
-            create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
+            try:
+                print(f'Processing m4a {m4a_file}')
+                wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
+                call_whisper(args.whisper, args.model, wav_file)
+                create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
+            except FileNotFoundError:
+                pass
+
