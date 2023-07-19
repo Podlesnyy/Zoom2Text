@@ -100,6 +100,7 @@ def call_whisper(whisper, model, wavfile):
 
 def create_google_doc(google_account, dir_with_zoom, wav_file):
     try:
+
         gc = gspread.service_account(google_account)
         last_dir = os.path.basename(os.path.normpath(dir_with_zoom))
         sheet_name = f'Zoom2Text {last_dir}'
@@ -147,6 +148,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     zooms = get_child_directories(args.pathZoom)
+
     for dir_with_zoom in zooms:
         print(f'Processing zoom directory {dir_with_zoom}')
         output_dir = create_directory(dir_with_zoom, args.pathOutput)
@@ -159,3 +161,4 @@ if __name__ == '__main__':
                 create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
             except FileNotFoundError:
                 pass
+            time.sleep(5)
