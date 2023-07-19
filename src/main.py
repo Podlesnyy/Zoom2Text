@@ -99,33 +99,41 @@ def call_whisper(whisper, model, wavfile):
 
 
 def create_google_doc(google_account, dir_with_zoom, wav_file):
-    gc = gspread.service_account(google_account)
-    last_dir = os.path.basename(os.path.normpath(dir_with_zoom))
-    sheet_name = f'Zoom2Text {last_dir}'
-
     try:
-        spreadsheet = gc.open(sheet_name)
-    except gspread.SpreadsheetNotFound:
-        spreadsheet = gc.create(sheet_name)
-        res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
-        permission_id = res.json()["id"]
-        spreadsheet.transfer_ownership(permission_id)
+        gc = gspread.service_account(google_account)
+        last_dir = os.path.basename(os.path.normpath(dir_with_zoom))
+        sheet_name = f'Zoom2Text {last_dir}'
 
-    data = pd.read_csv(f'{wav_file}.csv', escapechar="\\")
-    file_name = os.path.splitext(os.path.basename(wav_file))[0]
+        try:
+            spreadsheet = gc.open(sheet_name)
+        except gspread.SpreadsheetNotFound:
+            spreadsheet = gc.create(sheet_name)
+            try:
+                res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
+                permission_id = res.json()["id"]
+                spreadsheet.transfer_ownership(permission_id)
+            except gspread.exceptions.APIError:
+                print('Share error')
+                pass
 
-    try:
-        spreadsheet.worksheet(file_name)
-        print(f'Worksheet {file_name} already created')
-        return
-    except gspread.WorksheetNotFound:
-        worksheet = spreadsheet.add_worksheet(file_name, 1, 100)
+        data = pd.read_csv(f'{wav_file}.csv', escapechar="\\")
+        file_name = os.path.splitext(os.path.basename(wav_file))[0]
 
-    worksheet.insert_rows(data.values.tolist(), 1)
-    try:
-        worksheet0 = spreadsheet.worksheet('Sheet1')
-        spreadsheet.del_worksheet(worksheet0)
-    except gspread.WorksheetNotFound:
+        try:
+            spreadsheet.worksheet(file_name)
+            print(f'Worksheet {file_name} already created')
+            return
+        except gspread.WorksheetNotFound:
+            worksheet = spreadsheet.add_worksheet(file_name, 1, 100)
+
+        worksheet.insert_rows(data.values.tolist(), 1)
+        try:
+            worksheet0 = spreadsheet.worksheet('Sheet1')
+            spreadsheet.del_worksheet(worksheet0)
+        except gspread.WorksheetNotFound:
+            pass
+    except gspread.exceptions.APIError:
+        print('gspread.exceptions.APIError')
         pass
 
 
@@ -151,4 +159,3 @@ if __name__ == '__main__':
                 create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
             except FileNotFoundError:
                 pass
-
