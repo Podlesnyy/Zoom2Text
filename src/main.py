@@ -1,6 +1,7 @@
 import os
 import argparse
 import fnmatch
+import shutil
 import subprocess
 import time
 import pandas as pd
@@ -138,6 +139,13 @@ def create_google_doc(google_account, dir_with_zoom, wav_file):
         pass
 
 
+def move_zoom(pathZoom, dir_with_zoom):
+    input_dir_name = os.path.basename(os.path.normpath(dir_with_zoom))
+    dir_to_move = os.path.join(f'{pathZoom}_transcribed', input_dir_name)
+
+    shutil.move(dir_with_zoom, dir_to_move)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="List child directories of a given directory")
     parser.add_argument("-pz", "--pathZoom", type=str, help="The path to the Zoom directory")
@@ -152,7 +160,7 @@ if __name__ == '__main__':
     for dir_with_zoom in zooms:
         print(f'Processing zoom directory {dir_with_zoom}')
         output_dir = create_directory(dir_with_zoom, args.pathOutput)
-        m4a_files = find_m4a_files(dir_with_zoom, True)
+        m4a_files = find_m4a_files(dir_with_zoom, False)
         for m4a_file in m4a_files:
             try:
                 print(f'Processing m4a {m4a_file}')
@@ -162,3 +170,4 @@ if __name__ == '__main__':
             except FileNotFoundError:
                 pass
             time.sleep(5)
+        move_zoom(args.pathZoom, dir_with_zoom)
