@@ -1,0 +1,1 @@
+/Users/andreypodlesnyy/projects/Zoom2Text/src/venv/bin/python main.py --pathZoom /Users/andreypodlesnyy/Documents/Zoom --pathOutput /Users/andreypodlesnyy/Documents/Zoom2Text --whisper /Users/andreypodlesnyy/projects/whisper-cpp/main --model /Users/andreypodlesnyy/projects/whisper-cpp/models/ggml-large.bin --googleAcc /Users/andreypodlesnyy/zoom2text-a4734ed30264.json
