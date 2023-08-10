@@ -8,7 +8,7 @@ import pandas as pd
 import gspread
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
-
+from colorama import Fore
 
 def get_child_directories(directory_path):
     return [os.path.join(directory_path, name) for name in os.listdir(directory_path) if
@@ -146,6 +146,38 @@ def move_zoom(pathZoom, dir_with_zoom):
     shutil.move(dir_with_zoom, dir_to_move)
 
 
+def check_owner(google_account):
+    gc = gspread.service_account(google_account)
+    documents = gc.list_spreadsheet_files()
+
+    # Iterate over each document
+    for doc in documents:
+        try:
+            # Fetch permissions for the current spreadsheet
+            permissions = gc.list_permissions(doc['id'])
+
+            # Check if podlesniy@gmail.com is already the owner
+            has_transferred = any(
+                perm['type'] == 'user' and
+                perm['emailAddress'] == 'podlesniy@gmail.com' and
+                (perm['role'] == 'owner' or perm['pendingOwner']) for perm in permissions
+            )
+
+            # If not, transfer the ownership
+            if not has_transferred:
+                spreadsheet = gc.open_by_key(doc['id'])
+                res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
+                permission_id = res.json()["id"]
+                spreadsheet.transfer_ownership(permission_id)
+                print(f"Ownership for {doc['name']} transferred to podlesniy@gmail.com.")
+            else:
+                print(f"podlesniy@gmail.com already owns {doc['name']}.")
+        except Exception as e:
+            print(f"Error processing {doc['name']}: {e}")
+
+    print("Done!")
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="List child directories of a given directory")
     parser.add_argument("-pz", "--pathZoom", type=str, help="The path to the Zoom directory")
@@ -155,12 +187,15 @@ if __name__ == '__main__':
     parser.add_argument("-ga", "--googleAcc", type=str, help="Google Account file")
     args = parser.parse_args()
 
+    #check_owner(args.googleAcc)
+
     zooms = get_child_directories(args.pathZoom)
+    zooms.reverse()
 
     for dir_with_zoom in zooms:
         print(f'Processing zoom directory {dir_with_zoom}')
         output_dir = create_directory(dir_with_zoom, args.pathOutput)
-        m4a_files = find_m4a_files(dir_with_zoom, False)
+        m4a_files = find_m4a_files(dir_with_zoom, True)
         for m4a_file in m4a_files:
             try:
                 print(f'Processing m4a {m4a_file}')
