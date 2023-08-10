@@ -100,42 +100,38 @@ def call_whisper(whisper, model, wavfile):
 
 
 def create_google_doc(google_account, dir_with_zoom, wav_file):
+    gc = gspread.service_account(google_account)
+    last_dir = os.path.basename(os.path.normpath(dir_with_zoom))
+    sheet_name = f'Zoom2Text {last_dir}'
+
     try:
-
-        gc = gspread.service_account(google_account)
-        last_dir = os.path.basename(os.path.normpath(dir_with_zoom))
-        sheet_name = f'Zoom2Text {last_dir}'
-
+        spreadsheet = gc.open(sheet_name)
+    except gspread.SpreadsheetNotFound:
+        spreadsheet = gc.create(sheet_name)
         try:
-            spreadsheet = gc.open(sheet_name)
-        except gspread.SpreadsheetNotFound:
-            spreadsheet = gc.create(sheet_name)
-            try:
-                res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
-                permission_id = res.json()["id"]
-                spreadsheet.transfer_ownership(permission_id)
-            except gspread.exceptions.APIError:
-                print('Share error')
-                pass
-
-        data = pd.read_csv(f'{wav_file}.csv', escapechar="\\")
-        file_name = os.path.splitext(os.path.basename(wav_file))[0]
-
-        try:
-            spreadsheet.worksheet(file_name)
-            print(f'Worksheet {file_name} already created')
-            return
-        except gspread.WorksheetNotFound:
-            worksheet = spreadsheet.add_worksheet(file_name, 1, 100)
-
-        worksheet.insert_rows(data.values.tolist(), 1)
-        try:
-            worksheet0 = spreadsheet.worksheet('Sheet1')
-            spreadsheet.del_worksheet(worksheet0)
-        except gspread.WorksheetNotFound:
+            res = spreadsheet.share('podlesniy@gmail.com', perm_type='user', role='writer', notify=True)
+            permission_id = res.json()["id"]
+            spreadsheet.transfer_ownership(permission_id)
+        except gspread.exceptions.APIError:
+            print('Share error')
             pass
-    except gspread.exceptions.APIError:
-        print('gspread.exceptions.APIError')
+
+    data = pd.read_csv(f'{wav_file}.csv', escapechar="\\")
+    file_name = os.path.splitext(os.path.basename(wav_file))[0]
+
+    try:
+        spreadsheet.worksheet(file_name)
+        print(f'Worksheet {file_name} already created')
+        return
+    except gspread.WorksheetNotFound:
+        worksheet = spreadsheet.add_worksheet(file_name, 1, 100)
+
+    worksheet.insert_rows(data.values.tolist(), 1)
+    print(f'Worksheet {file_name} created')
+    try:
+        worksheet0 = spreadsheet.worksheet('Sheet1')
+        spreadsheet.del_worksheet(worksheet0)
+    except gspread.WorksheetNotFound:
         pass
 
 
@@ -195,15 +191,12 @@ if __name__ == '__main__':
     for dir_with_zoom in zooms:
         print(f'Processing zoom directory {dir_with_zoom}')
         output_dir = create_directory(dir_with_zoom, args.pathOutput)
-        m4a_files = find_m4a_files(dir_with_zoom, True)
+        m4a_files = find_m4a_files(dir_with_zoom, False)
         for m4a_file in m4a_files:
-            try:
-                print(f'Processing m4a {m4a_file}')
-                wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
-                call_whisper(args.whisper, args.model, wav_file)
-                create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
-            except FileNotFoundError:
-                pass
+            print(f'Processing m4a {m4a_file}')
+            wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
+            call_whisper(args.whisper, args.model, wav_file)
+            create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
             time.sleep(5)
         move_zoom(args.pathZoom, dir_with_zoom)
 
