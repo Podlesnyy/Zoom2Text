@@ -206,3 +206,5 @@ if __name__ == '__main__':
                 pass
             time.sleep(5)
         move_zoom(args.pathZoom, dir_with_zoom)
+
+    print('All done')
