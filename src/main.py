@@ -116,6 +116,10 @@ def create_google_doc(google_account, dir_with_zoom, wav_file):
             print('Share error')
             pass
 
+    if not os.path.isfile(f'{wav_file}.csv'):
+        print('Bad csv file')
+        return
+
     data = pd.read_csv(f'{wav_file}.csv', escapechar="\\")
     file_name = os.path.splitext(os.path.basename(wav_file))[0]
 
