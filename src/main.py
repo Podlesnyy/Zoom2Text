@@ -55,12 +55,13 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
 
     zoom_m4a_file = os.path.join(dir_with_zoom, m4afile)
     sound = AudioSegment.from_file(zoom_m4a_file, format='m4a')  # load source
+
     print(f'Removing silence')
     start_time = time.time()
-    chunks = split_on_silence(sound, silence_thresh=-50, min_silence_len=3000)
+    chunks = split_on_silence(sound, silence_thresh=-50, min_silence_len=15000)
 
     non_silent_audio = AudioSegment.empty()
-    silence = AudioSegment.silent(duration=2000)
+    silence = AudioSegment.silent(duration=3000)
 
     for chunk in chunks:
         non_silent_audio += chunk
@@ -69,6 +70,7 @@ def create_wav_file(dir_with_zoom, output_dir, m4afile):
     end_time = time.time()
     print(f'Removed silence by time {end_time - start_time}')
 
+    # non_silent_audio = sound
     non_silent_audio = non_silent_audio.set_channels(1)  # mono
     non_silent_audio = non_silent_audio.set_frame_rate(16000)  # 16000Hz
     non_silent_audio.export(output_file_path, format="wav")
@@ -195,13 +197,13 @@ if __name__ == '__main__':
     for dir_with_zoom in zooms:
         print(f'Processing zoom directory {dir_with_zoom}')
         output_dir = create_directory(dir_with_zoom, args.pathOutput)
-        m4a_files = find_m4a_files(dir_with_zoom, False)
+        m4a_files = find_m4a_files(dir_with_zoom, True)
         for m4a_file in m4a_files:
             print(f'Processing m4a {m4a_file}')
             wav_file = create_wav_file(dir_with_zoom, output_dir, m4a_file)
             call_whisper(args.whisper, args.model, wav_file)
             create_google_doc(args.googleAcc, dir_with_zoom, wav_file)
-            time.sleep(5)
+            #time.sleep(5)
         move_zoom(args.pathZoom, dir_with_zoom)
 
     print('All done')
